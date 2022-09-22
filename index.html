@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+	<link rel="stylesheet" href="./style.css">
+    <title>Teste Acervo</title>
+</head>
+<body>
+    <div class='acervo-drive-container'>
+        <form id='drive-form'>
+            <input id='drive-search-input' placeholder='PESQUISAR PASTA...' type='search' value='' oninput='onChangeSearch(this.value)' />
+        </form>
+
+        
+        <div id='acervo-drive-folders'></div>
+    </div>
+
+    <script>
+        let driveFolders
+        let allFiles = []
+
+        function showFolders (folders){
+			folders.map((folder, index) => {
+                const html = `<div class='drive-folder-content'> <div id='${folder.id}_content' class='folder-name-content'> <img src='${folder.iconLink}'alt='folder'/> <div>${folder.name}</div> </div> <div class='child_folders' id='${folder.id}_child'></div> </div>`
+                let div = document.createElement('div')
+                
+                div.innerHTML = html
+                div.id = folder.id
+                
+                document.getElementById('acervo-drive-folders').appendChild(div)
+                
+                let content = document.getElementById(`${folder.id}_content`)
+                content.addEventListener('click', getFolders)
+                content.addEventListener('dblclick', getFolders)
+            })
+		}
+
+        async function getFolders (e) {
+            const folderID = e ? e.srcElement.parentElement.parentNode.id || e.srcElement.parentElement.parentElement.parentNode.id : ''
+
+            if ((folderID && !document.getElementById(`${folderID}_child`).classList.contains('conteudo'))){
+                document.getElementById(`${folderID}_child`).classList.toggle('conteudo')
+                
+                const response = await fetch(`http://localhost:3333?folderId=${folderID}`)
+                driveFolders = await response.json()
+
+                allFiles.push(driveFolders)
+
+                showFoldersChild(driveFolders, folderID)
+            } else if (!folderID){
+                const response = await fetch(`http://localhost:3333?folderId=${folderID}`)
+                driveFolders = await response.json()
+
+                allFiles.push(driveFolders)
+
+                showFolders(driveFolders)
+            }
+
+            folderID && document.getElementById(`${folderID}_child`).classList.toggle('ativo')
+        }
+
+        function showFoldersChild (folders, id) {
+            folders.map((folder, index) => {
+                let html 
+
+                if (folder.mimeType === 'application/vnd.google-apps.folder'){
+                    html = `<div class='drive-folder-content'> <div id='${folder.id}_content' class='folder-name-content'> <img src='${folder.iconLink}'alt='folder'/> <div>${folder.name}</div> </div> <div class='child_folders' id='${folder.id}_child'></div> </div>`
+                } else {
+                    html = `<a href='${folder.webViewLink}' target='_blank'> <div class='drive-folder-content'> <div class='folder-name-content'> <img src='${folder.iconLink}'alt='folder'/> <div>${folder.name}</div> </div></div> </a>`
+                }
+                let div = document.createElement('div')
+                
+                div.innerHTML = html
+                div.id = folder.id
+                
+                document.getElementById(`${id}_child`).appendChild(div)
+                let content = document.getElementById(`${folder.id}_content`)
+
+                const parentMargin = document.getElementById(`${id}_child`).style.marginLeft
+                document.getElementById(folder.id).style.marginLeft = `${parentMargin + 2}em`
+
+                content && content.addEventListener('click', getFolders)
+                content && content.addEventListener('dblclick', getFolders)
+            })
+        }
+        
+        function removeAll(){
+			const div = document.getElementById('acervo-drive-folders');
+				
+			while (div.children.length > 0){
+				div.children[0].outerHTML = '';
+			}		
+		}
+
+        function onChangeSearch(e) {
+            if (e === ''){
+                removeAll()
+                getFolders()
+            } else {
+                let filteredFolders = []
+
+                allFiles.forEach((group) => {
+                    group.forEach((file) => {
+                        if (file.name.toUpperCase().normalize('NFD').includes(e.toUpperCase().normalize('NFD')) ){
+                            filteredFolders.push(file)
+                        }
+                    })
+                })
+
+                removeAll()
+
+                showFolders(filteredFolders)
+            }
+        }
+
+        getFolders()
+    </script>
+</body>
+</html>
